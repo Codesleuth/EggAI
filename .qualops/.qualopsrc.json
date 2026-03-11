@@ -1,24 +1,24 @@
 {
   "ai": {
     "reviewStage": {
-      "provider": "anthropic",
-      "model": "claude-sonnet-4-5-20250929",
-      "inputPerMillion": 3.0,
-      "outputPerMillion": 15.0,
-      "temperature": 0.1
+      "provider": "github",
+      "model": "openai/gpt-4.1-mini",
+      "inputPerMillion": 0.4,
+      "outputPerMillion": 1.6,
+      "temperature": 0
     },
     "fixStage": {
-      "provider": "anthropic",
-      "model": "claude-sonnet-4-5-20250929",
-      "inputPerMillion": 3.0,
-      "outputPerMillion": 15.0,
+      "provider": "github",
+      "model": "openai/gpt-4.1-mini",
+      "inputPerMillion": 0.4,
+      "outputPerMillion": 1.6,
       "temperature": 0
     },
     "judgeStage": {
-      "provider": "anthropic",
-      "model": "claude-sonnet-4-5-20250929",
-      "inputPerMillion": 3.0,
-      "outputPerMillion": 15.0,
+      "provider": "github",
+      "model": "openai/gpt-4.1-mini",
+      "inputPerMillion": 0.4,
+      "outputPerMillion": 1.6,
       "temperature": 0
     }
   },
@@ -44,7 +44,11 @@
           "contextMode": "auto",
           "maxTokensPerFile": 8000,
           "maxTotalTokens": 50000,
-          "enabledSubagents": ["security-analyzer", "dependency-tracer", "breaking-change-detector"],
+          "enabledSubagents": [
+            "security-analyzer",
+            "dependency-tracer",
+            "breaking-change-detector"
+          ],
           "systemPrompt": "Review Python code for security vulnerabilities, performance issues, code quality, and architectural concerns. Focus on asyncio patterns, resource management, and transport layer abstractions."
         },
         "validation": {
@@ -89,43 +93,97 @@
         "key": "security_input_validation",
         "label": "Security - Input Validation",
         "description": "SQL injection, command injection, path traversal, and unsanitized input",
-        "patterns": ["injection", "sql", "command", "path traversal", "unsanitized", "subprocess", "eval", "exec"]
+        "patterns": [
+          "injection",
+          "sql",
+          "command",
+          "path traversal",
+          "unsanitized",
+          "subprocess",
+          "eval",
+          "exec"
+        ]
       },
       {
         "key": "security_auth",
         "label": "Security - Auth & Secrets",
         "description": "Authentication, authorization, hardcoded secrets, and credential handling",
-        "patterns": ["auth", "password", "secret", "token", "credential", "hardcoded", "permission"]
+        "patterns": [
+          "auth",
+          "password",
+          "secret",
+          "token",
+          "credential",
+          "hardcoded",
+          "permission"
+        ]
       },
       {
         "key": "async_concurrency",
         "label": "Async & Concurrency",
         "description": "asyncio misuse, race conditions, deadlocks, and event loop issues",
-        "patterns": ["asyncio", "race condition", "deadlock", "await", "event loop", "concurrent", "thread"]
+        "patterns": [
+          "asyncio",
+          "race condition",
+          "deadlock",
+          "await",
+          "event loop",
+          "concurrent",
+          "thread"
+        ]
       },
       {
         "key": "resource_management",
         "label": "Resource Management",
         "description": "Unclosed file handles, connection leaks, missing context managers",
-        "patterns": ["resource leak", "file handle", "connection", "context manager", "close", "cleanup", "finally"]
+        "patterns": [
+          "resource leak",
+          "file handle",
+          "connection",
+          "context manager",
+          "close",
+          "cleanup",
+          "finally"
+        ]
       },
       {
         "key": "performance",
         "label": "Performance",
         "description": "Inefficient algorithms, unnecessary I/O, blocking operations in async code",
-        "patterns": ["performance", "bottleneck", "blocking", "n+1", "inefficient", "loop", "memory"]
+        "patterns": [
+          "performance",
+          "bottleneck",
+          "blocking",
+          "n+1",
+          "inefficient",
+          "loop",
+          "memory"
+        ]
       },
       {
         "key": "architecture",
         "label": "Architecture",
         "description": "Design pattern violations, tight coupling, abstraction boundary issues",
-        "patterns": ["coupling", "dependency", "abstraction", "interface", "design pattern", "separation"]
+        "patterns": [
+          "coupling",
+          "dependency",
+          "abstraction",
+          "interface",
+          "design pattern",
+          "separation"
+        ]
       },
       {
         "key": "code_quality",
         "label": "Code Quality",
         "description": "General maintainability, error handling, and code clarity issues",
-        "patterns": ["error handling", "exception", "maintainability", "complexity", "readability"]
+        "patterns": [
+          "error handling",
+          "exception",
+          "maintainability",
+          "complexity",
+          "readability"
+        ]
       }
     ]
   },
