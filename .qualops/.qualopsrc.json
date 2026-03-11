@@ -197,6 +197,13 @@
       "maxRequestsPerMinute": 15
     }
   },
+  "github": {
+    "enabled": true,
+    "postComments": true,
+    "skipOnDraft": false,
+    "blockPipeline": false,
+    "maxInlineComments": 50
+  },
   "logger": {
     "level": "info",
     "enableColors": true,
