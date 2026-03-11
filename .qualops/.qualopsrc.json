@@ -187,6 +187,16 @@
       }
     ]
   },
+  "performance": {
+    "maxFileSizeKB": 500,
+    "maxFilesPerBatch": 5,
+    "maxTokensPerFile": 8000,
+    "timeoutSeconds": 300,
+    "throttling": {
+      "enabled": true,
+      "maxRequestsPerMinute": 15
+    }
+  },
   "logger": {
     "level": "info",
     "enableColors": true,
