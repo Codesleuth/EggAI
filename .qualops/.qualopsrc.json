@@ -1,24 +1,25 @@
 {
+  "$schema": "../../qualops/docs/qualops-config.schema.json",
   "ai": {
     "reviewStage": {
-      "provider": "github",
-      "model": "openai/gpt-4.1-mini",
-      "inputPerMillion": 0.4,
-      "outputPerMillion": 1.6,
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "inputPerMillion": 0.8,
+      "outputPerMillion": 4.0,
       "temperature": 0
     },
     "fixStage": {
-      "provider": "github",
-      "model": "openai/gpt-4.1-mini",
-      "inputPerMillion": 0.4,
-      "outputPerMillion": 1.6,
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "inputPerMillion": 0.8,
+      "outputPerMillion": 4.0,
       "temperature": 0
     },
     "judgeStage": {
-      "provider": "github",
-      "model": "openai/gpt-4.1-mini",
-      "inputPerMillion": 0.4,
-      "outputPerMillion": 1.6,
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "inputPerMillion": 0.8,
+      "outputPerMillion": 4.0,
       "temperature": 0
     }
   },
@@ -40,16 +41,17 @@
         "enabled": true,
         "mode": "agentic",
         "agentic": {
-          "maxTurns": 15,
+          "maxTurns": 10,
           "contextMode": "auto",
           "maxTokensPerFile": 8000,
           "maxTotalTokens": 50000,
           "enabledSubagents": [
             "security-analyzer",
             "dependency-tracer",
-            "breaking-change-detector"
+            "breaking-change-detector",
+            "pattern-validator"
           ],
-          "systemPrompt": "Review Python code for security vulnerabilities, performance issues, code quality, and architectural concerns. Focus on asyncio patterns, resource management, and transport layer abstractions."
+          "systemPrompt": "Review Python code for security vulnerabilities, performance issues, code quality, and architectural concerns. Focus on asyncio patterns, resource management, and transport layer abstractions. This is a Python SDK project using Poetry — pay attention to dependency boundaries, public API surface, and inter-agent messaging contracts."
         },
         "validation": {
           "enabled": true,
@@ -60,7 +62,7 @@
           {
             "name": "Python Code Review",
             "enabled": true,
-            "prompt": "review-system-message.md",
+            "prompt": "python-code-review.md",
             "filters": {
               "filePatterns": ["**/*.py"],
               "excludePatterns": [
@@ -79,139 +81,26 @@
     ]
   },
   "fix": {
-    "enabled": false,
-    "prompt": "fix-system-message.md",
-    "severities": ["critical"],
-    "minConfidence": 9,
     "maxConcurrentFixes": 10
   },
   "report": {
     "includedSeverities": ["critical", "high"],
-    "enableRootCauseExtraction": true,
-    "taxonomy": [
-      {
-        "key": "security_input_validation",
-        "label": "Security - Input Validation",
-        "description": "SQL injection, command injection, path traversal, and unsanitized input",
-        "patterns": [
-          "injection",
-          "sql",
-          "command",
-          "path traversal",
-          "unsanitized",
-          "subprocess",
-          "eval",
-          "exec"
-        ]
-      },
-      {
-        "key": "security_auth",
-        "label": "Security - Auth & Secrets",
-        "description": "Authentication, authorization, hardcoded secrets, and credential handling",
-        "patterns": [
-          "auth",
-          "password",
-          "secret",
-          "token",
-          "credential",
-          "hardcoded",
-          "permission"
-        ]
-      },
-      {
-        "key": "async_concurrency",
-        "label": "Async & Concurrency",
-        "description": "asyncio misuse, race conditions, deadlocks, and event loop issues",
-        "patterns": [
-          "asyncio",
-          "race condition",
-          "deadlock",
-          "await",
-          "event loop",
-          "concurrent",
-          "thread"
-        ]
-      },
-      {
-        "key": "resource_management",
-        "label": "Resource Management",
-        "description": "Unclosed file handles, connection leaks, missing context managers",
-        "patterns": [
-          "resource leak",
-          "file handle",
-          "connection",
-          "context manager",
-          "close",
-          "cleanup",
-          "finally"
-        ]
-      },
-      {
-        "key": "performance",
-        "label": "Performance",
-        "description": "Inefficient algorithms, unnecessary I/O, blocking operations in async code",
-        "patterns": [
-          "performance",
-          "bottleneck",
-          "blocking",
-          "n+1",
-          "inefficient",
-          "loop",
-          "memory"
-        ]
-      },
-      {
-        "key": "architecture",
-        "label": "Architecture",
-        "description": "Design pattern violations, tight coupling, abstraction boundary issues",
-        "patterns": [
-          "coupling",
-          "dependency",
-          "abstraction",
-          "interface",
-          "design pattern",
-          "separation"
-        ]
-      },
-      {
-        "key": "code_quality",
-        "label": "Code Quality",
-        "description": "General maintainability, error handling, and code clarity issues",
-        "patterns": [
-          "error handling",
-          "exception",
-          "maintainability",
-          "complexity",
-          "readability"
-        ]
-      }
-    ]
+    "enableRootCauseExtraction": true
   },
   "performance": {
-    "maxFileSizeKB": 500,
-    "maxFilesPerBatch": 5,
-    "maxTokensPerFile": 8000,
-    "timeoutSeconds": 300,
     "throttling": {
-      "enabled": true,
-      "maxRequestsPerMinute": 15
+      "apiCallsPerMinute": 30
     }
   },
   "github": {
-    "enabled": true,
     "postComments": true,
     "skipOnDraft": false,
     "blockPipeline": false,
     "maxInlineComments": 50
   },
   "logger": {
-    "level": "info",
+    "level": "debug",
     "enableColors": true,
     "enableTimestamps": true
-  },
-  "paths": {
-    "sessionsDir": ".qualops/reports/sessions",
-    "cacheDir": ".qualops-cache",
-    "outputDir": ".qualops/reports"
   }
 }
