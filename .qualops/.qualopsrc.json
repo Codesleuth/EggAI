@@ -1,0 +1,106 @@
+{
+  "$schema": "../../qualops/docs/qualops-config.schema.json",
+  "ai": {
+    "reviewStage": {
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "inputPerMillion": 0.8,
+      "outputPerMillion": 4.0,
+      "temperature": 0
+    },
+    "fixStage": {
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "inputPerMillion": 0.8,
+      "outputPerMillion": 4.0,
+      "temperature": 0
+    },
+    "judgeStage": {
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "inputPerMillion": 0.8,
+      "outputPerMillion": 4.0,
+      "temperature": 0
+    }
+  },
+  "review": {
+    "minConfidence": 8,
+    "maxConcurrentFiles": 5,
+    "validation": {
+      "enabled": true,
+      "minConfidence": 8,
+      "prompt": "validation.md"
+    },
+    "deduplication": {
+      "enabled": true,
+      "prompt": "deduplication.md"
+    },
+    "pipeline": [
+      {
+        "name": "pythonReview",
+        "enabled": true,
+        "mode": "agentic",
+        "agentic": {
+          "maxTurns": 10,
+          "contextMode": "auto",
+          "maxTokensPerFile": 8000,
+          "maxTotalTokens": 50000,
+          "enabledSubagents": [
+            "security-analyzer",
+            "dependency-tracer",
+            "breaking-change-detector",
+            "pattern-validator"
+          ],
+          "systemPrompt": "Review Python code for security vulnerabilities, performance issues, code quality, and architectural concerns. Focus on asyncio patterns, resource management, and transport layer abstractions. This is a Python SDK project using Poetry — pay attention to dependency boundaries, public API surface, and inter-agent messaging contracts."
+        },
+        "validation": {
+          "enabled": true,
+          "minConfidence": 8,
+          "prompt": "validation.md"
+        },
+        "passes": [
+          {
+            "name": "Python Code Review",
+            "enabled": true,
+            "prompt": "python-code-review.md",
+            "filters": {
+              "filePatterns": ["**/*.py"],
+              "excludePatterns": [
+                "**/*_test.py",
+                "**/test_*.py",
+                "**/tests/**",
+                "**/__pycache__/**",
+                "**/*.pyc",
+                "**/migrations/**",
+                "**/conftest.py"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "fix": {
+    "maxConcurrentFixes": 10
+  },
+  "report": {
+    "includedSeverities": ["critical", "high"],
+    "enableRootCauseExtraction": true
+  },
+  "performance": {
+    "throttling": {
+      "apiCallsPerMinute": 30
+    }
+  },
+  "github": {
+    "postComments": true,
+    "skipOnDraft": false,
+    "blockPipeline": false,
+    "maxInlineComments": 50
+  },
+  "logger": {
+    "level": "debug",
+    "enableColors": true,
+    "enableTimestamps": true
+  }
+}

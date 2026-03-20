@@ -7,21 +7,24 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     name: Code quality checks
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: '3.11'
 
       - name: Cache Poetry dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
         with:
           path: |
             ~/.cache/pypoetry
@@ -32,7 +35,7 @@ jobs:
             poetry-${{ runner.os }}-
 
       - name: Install Poetry
-        uses: Gr1N/setup-poetry@v9
+        uses: Gr1N/setup-poetry@48b0f77c8c1b1b19cb962f0f00dff7b4be8f81ec # v9
 
       - name: Copy README to SDK
         run: cp README.md sdk/
@@ -52,38 +55,71 @@ jobs:
   changelog:
     runs-on: ubuntu-latest
     name: Changelog check
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip-changelog') && github.actor != 'dependabot[bot]'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
-      - name: Check CHANGELOG.md updated
+      - name: Check if changelog skip requested
+        id: skip-check
+        env:
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
-          # Check if CHANGELOG.md was modified in this PR
+          if echo "$PR_LABELS" | grep -q "skip-changelog"; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip-changelog label found, skipping changelog check"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if changelog is required
+        if: steps.skip-check.outputs.skip != 'true'
+        id: needs-changelog
+        run: |
+          # Changelog is required if the PR touches code or test files under sdk/
+          # (excluding sdk/CHANGELOG.md itself). PRs that only touch docs/, .github/,
+          # or root config files are auto-skipped — no label needed.
+          CHANGED=$(git diff origin/main --name-only)
+          CODE_CHANGED=$(echo "$CHANGED" | grep -E "^sdk/" | grep -v "^sdk/CHANGELOG.md" || true)
+
+          if [ -z "$CODE_CHANGED" ]; then
+            echo "required=false" >> $GITHUB_OUTPUT
+            echo "No SDK code changes — changelog not required."
+          else
+            echo "required=true" >> $GITHUB_OUTPUT
+            echo "SDK code changed — changelog required:"
+            echo "$CODE_CHANGED"
+          fi
+
+      - name: Check CHANGELOG.md updated
+        if: steps.skip-check.outputs.skip != 'true' && steps.needs-changelog.outputs.required == 'true'
+        run: |
           if ! git diff origin/main --name-only | grep -q "sdk/CHANGELOG.md"; then
             echo "::error::CHANGELOG.md must be updated. Add your changes under [Unreleased] section."
-            echo ""
-            echo "If this PR doesn't need a changelog entry (docs, CI, etc.), add the 'skip-changelog' label."
             exit 1
           fi
 
       - name: Check changelog content
+        if: steps.skip-check.outputs.skip != 'true' && steps.needs-changelog.outputs.required == 'true'
         env:
           IS_RELEASE: ${{ contains(github.event.pull_request.labels.*.name, 'release') }}
         run: |
           if [ "$IS_RELEASE" = "true" ]; then
-            # Release PRs: verify version section exists
             if ! grep -qE "## \[[0-9]+\.[0-9]+\.[0-9]+\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" sdk/CHANGELOG.md; then
               echo "::error::Release PR must have a version section (e.g., ## [0.2.9] - 2025-01-01)"
               exit 1
             fi
             echo "Release changelog check passed!"
           else
-            # Regular PRs: require content under [Unreleased]
-            if ! grep -A 10 "## \[Unreleased\]" sdk/CHANGELOG.md | grep -qE "^### "; then
-              echo "::error::Add your changes under [Unreleased] section in CHANGELOG.md"
+            UNRELEASED=$(sed -n '/## \[Unreleased\]/,/## \[/p' sdk/CHANGELOG.md | sed '1d;$d')
+            if ! echo "$UNRELEASED" | grep -qE "^### "; then
+              echo "::error::Add a category header (### Added, ### Fixed, etc.) under [Unreleased] in CHANGELOG.md"
+              exit 1
+            fi
+            if ! echo "$UNRELEASED" | grep -qE "^- "; then
+              echo "::error::Add at least one entry (- description) under [Unreleased] in CHANGELOG.md"
               exit 1
             fi
             echo "Changelog check passed!"
@@ -99,15 +135,15 @@ jobs:
     name: Test SDK (Python ${{ matrix.python-version }})
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache Poetry dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
         with:
           path: |
             ~/.cache/pypoetry
@@ -118,7 +154,7 @@ jobs:
             poetry-${{ runner.os }}-
 
       - name: Install Poetry
-        uses: Gr1N/setup-poetry@v9
+        uses: Gr1N/setup-poetry@48b0f77c8c1b1b19cb962f0f00dff7b4be8f81ec # v9
 
       - name: Copy README to SDK
         run: cp README.md sdk/
@@ -133,7 +169,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
         with:
           file: sdk/coverage.xml
           flags: unittests
@@ -145,15 +181,15 @@ jobs:
     name: Build and verify SDK package
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: '3.11'
 
       - name: Cache Poetry dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
         with:
           path: |
             ~/.cache/pypoetry
@@ -164,7 +200,7 @@ jobs:
             poetry-${{ runner.os }}-
 
       - name: Install Poetry
-        uses: Gr1N/setup-poetry@v9
+        uses: Gr1N/setup-poetry@48b0f77c8c1b1b19cb962f0f00dff7b4be8f81ec # v9
 
       - name: Copy README to SDK
         run: cp README.md sdk/
@@ -199,7 +235,7 @@ jobs:
           fi
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: dist-python-3.11
           path: sdk/dist/
@@ -213,17 +249,21 @@ jobs:
 
     steps:
       - name: Check if all jobs passed
+        env:
+          CHANGELOG_RESULT: ${{ needs.changelog.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
         run: |
-          # Changelog is optional (skipped on push to main or with skip-changelog label)
-          CHANGELOG_OK="${{ needs.changelog.result }}"
-          if [[ "$CHANGELOG_OK" != "success" && "$CHANGELOG_OK" != "skipped" ]]; then
+          # Changelog is optional (skipped on push to main or when no code changes)
+          if [[ "$CHANGELOG_RESULT" != "success" && "$CHANGELOG_RESULT" != "skipped" ]]; then
             echo "Changelog check failed"
             exit 1
           fi
 
-          if [[ "${{ needs.lint.result }}" != "success" || \
-                "${{ needs.test.result }}" != "success" || \
-                "${{ needs.build.result }}" != "success" ]]; then
+          if [[ "$LINT_RESULT" != "success" || \
+                "$TEST_RESULT" != "success" || \
+                "$BUILD_RESULT" != "success" ]]; then
             echo "One or more required checks failed"
             exit 1
           fi

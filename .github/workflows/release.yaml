@@ -8,108 +8,104 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   create-release-pr:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Generate app token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Validate version format
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
-          VERSION="${{ github.event.inputs.version }}"
           if ! echo "$VERSION" | grep -qE "^[0-9]+\.[0-9]+\.[0-9]+([a-zA-Z]+[0-9]+)?$"; then
             echo "::error::Invalid version format. Use: X.Y.Z or X.Y.Zrc1"
             exit 1
           fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Check for unreleased changes
-        id: check
+      - name: Check for pre-release
         run: |
-          VERSION="${{ github.event.inputs.version }}"
-
-          # Check if this is a prerelease
           if echo "$VERSION" | grep -qE "(rc|alpha|beta)[0-9]+$"; then
-            echo "prerelease=true" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
           else
-            echo "prerelease=false" >> $GITHUB_OUTPUT
-            # For stable releases, require changelog content
-            if ! grep -A 5 "## \[Unreleased\]" sdk/CHANGELOG.md | grep -qE "^### "; then
-              echo "::error::No changes found under [Unreleased] in CHANGELOG.md"
-              exit 1
-            fi
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
           fi
 
-      - name: Create release branch
+      - name: Validate changelog has unreleased changes
+        if: env.IS_PRERELEASE == 'false'
         run: |
-          VERSION="${{ github.event.inputs.version }}"
+          UNRELEASED=$(sed -n '/## \[Unreleased\]/,/## \[/p' sdk/CHANGELOG.md | sed '1d;$d')
+          if ! echo "$UNRELEASED" | grep -qE "^### "; then
+            echo "::error::No changes found under [Unreleased] in sdk/CHANGELOG.md"
+            exit 1
+          fi
+
+      - name: Create release branch and update version
+        run: |
+          git config user.name "eggai-release-bot[bot]"
+          git config user.email "eggai-release-bot[bot]@users.noreply.github.com"
           git checkout -b release/v$VERSION
 
-      - name: Update version in pyproject.toml
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
           sed -i 's/^version = ".*"/version = "'$VERSION'"/' sdk/pyproject.toml
 
-      - name: Update CHANGELOG.md
-        if: steps.check.outputs.prerelease == 'false'
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          DATE=$(date +%Y-%m-%d)
-          sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [$VERSION] - $DATE/" sdk/CHANGELOG.md
+          ACTUAL=$(grep '^version = ' sdk/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          if [ "$ACTUAL" != "$VERSION" ]; then
+            echo "::error::Failed to update version in sdk/pyproject.toml (got: $ACTUAL)"
+            exit 1
+          fi
 
-      - name: Commit changes
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ "$IS_PRERELEASE" = "false" ]; then
+            DATE=$(date +%Y-%m-%d)
+            sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [$VERSION] - $DATE/" sdk/CHANGELOG.md
+          fi
+
           git add sdk/pyproject.toml sdk/CHANGELOG.md
           git commit -m "chore: release v$VERSION"
 
-      - name: Push branch
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+      - name: Extract changelog
+        id: changelog
         run: |
-          VERSION="${{ github.event.inputs.version }}"
-          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git release/v$VERSION
-
-      - name: Create Pull Request
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          PRERELEASE="${{ steps.check.outputs.prerelease }}"
-
-          if [ "$PRERELEASE" = "true" ]; then
-            cat > /tmp/pr-body.md << EOF
-          Release candidate v$VERSION for testing.
-
-          Install with: \`pip install eggai==$VERSION\`
-          EOF
-
-            gh pr create \
-              --title "chore: release v$VERSION" \
-              --body-file /tmp/pr-body.md \
-              --label "release" \
-              --label "skip-changelog"
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            echo "CONTENT=Pre-release version $VERSION" >> $GITHUB_OUTPUT
           else
-            # Extract changelog for this version
-            CHANGELOG=$(sed -n "/## \[$VERSION\]/,/## \[/p" sdk/CHANGELOG.md | sed '$d' | tail -n +2)
-
-            # Use a temp file to safely pass changelog content with special characters
-            {
-              echo "## Release v$VERSION"
-              echo ""
-              printf '%s\n' "$CHANGELOG"
-            } > /tmp/pr-body.md
-
-            gh pr create \
-              --title "chore: release v$VERSION" \
-              --body-file /tmp/pr-body.md \
-              --label "release"
+            CONTENT=$(sed -n "/## \[$VERSION\]/,/## \[/p" sdk/CHANGELOG.md | tail -n +2 | head -n -1)
+            DELIMITER=$(openssl rand -hex 8)
+            echo "CONTENT<<${DELIMITER}" >> $GITHUB_OUTPUT
+            echo "$CONTENT" >> $GITHUB_OUTPUT
+            echo "${DELIMITER}" >> $GITHUB_OUTPUT
           fi
 
-          echo "Release PR created! Merge it to trigger the release."
+      - name: Push and create PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CHANGELOG_BODY: ${{ steps.changelog.outputs.CONTENT }}
+        run: |
+          git push origin release/v$VERSION
+
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            printf '%s\n' "Pre-release v$VERSION for testing." "" "Install with: \`pip install eggai==$VERSION\`" > /tmp/pr-body.md
+            LABELS="--label release --label skip-changelog"
+          else
+            printf '%s\n' "## Release v$VERSION" "" "$CHANGELOG_BODY" "" "---" "After merging, the release will be automatically tagged and published to PyPI." > /tmp/pr-body.md
+            LABELS="--label release"
+          fi
+
+          gh pr create \
+            --title "chore: release v$VERSION" \
+            --body-file /tmp/pr-body.md \
+            --base main \
+            --head release/v$VERSION \
+            $LABELS

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **RedisTransport**: Auto-recover from NOGROUP errors when Redis loses streams
+  (restart without persistence, failover, memory eviction). A background stream
+  group monitor periodically ensures consumer groups exist via `XGROUP CREATE`
+  with `MKSTREAM`, and `PendingReclaimerManager` now recreates consumer groups
+  on NOGROUP errors instead of logging unhandled exceptions.
+
+## [0.2.13] - 2026-03-14
+
+### Changed
+- **CI**: Replace `skip-changelog` label with path-based auto-skip; changelog is only
+  required when SDK code changes. Strengthen validation to require at least one bullet entry.
+- **CI**: Replace broken `auto-tag.yaml` with manual `tag-release.yaml` workflow.
+  Fix `release.yaml` PR creation bug (missing `--head` flag).
+
 ## [0.2.12] - 2026-03-12
 
 ### Added
